@@ -1,1 +1,7 @@
-# empirical-fso-backhaul
+# An Empirical Study on Free Space Optical Backhaul
+
+Free Space Optical (FSO) communication technology allows to improve connectivity and bandwidth in urban scenarios through wireless fiber-like point-to-point links. These links, however, are subject to strict line-of-sight (LoS) requirements, and their capacity (throughput) is sensitive to and strongly depends on various atmospheric phenomena. These constraints limit their range.
+This work examines the topological characteristics of the (supplementary) connectivity graph that can be obtained by implementing FSO on existing cell sites (i.e., without new additional cell sites), taking into account existing topographic obstructions and FSO technical constraints and features (e.g., link reconfiguration). In particular, the paper examines the distribution of distance in FSO LoS-compliant links between existing cell sites.
+The study relies on public data and FSO link and obstruction empirical models.
+Results are presented for Paris and three other French urban regions (Lyon, Bordeaux, Toulouse), but the described methodology (based on open-source code) can be applied in other territories as well.
+Preliminary obtained results indicate that exploitation of existing cell sites and deployment of FSO technologies in urban areas lead to highly connected FSO meshes with high fault tolerance to failures and obstacles, and thus have the potential to substantially complement existing communication capacities, as well as to improve robustness of existing communication infrastructures.
