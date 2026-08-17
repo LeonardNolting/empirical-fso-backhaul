@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html>
+<head>
+      <meta charset='UTF-8'>
+      <title>Urban FSO Map</title>
+      <script src='https://unpkg.com/deck.gl@latest/dist.min.js'></script>
+      <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
+      <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
+      <style>
+        :root {
+          --bg: #111;
+          --panel-bg: rgba(30, 30, 30, 0.9);
+          --panel-border: rgba(255,255,255,0.1);
+          --text-primary: #ffffff;
+          --text-secondary: #888;
+          --text-muted: #ccc;
+          --accent: #2e7d32;
+          --accent-bright: #4CAF50;
+          --shadow: rgba(0,0,0,0.5);
+        }
+        :root.light {
+          --bg: #f5f5f5;
+          --panel-bg: rgba(255, 255, 255, 0.95);
+          --panel-border: rgba(0,0,0,0.12);
+          --text-primary: #111111;
+          --text-secondary: #555;
+          --text-muted: #333;
+          --accent: #1b5e20;
+          --accent-bright: #2e7d32;
+          --shadow: rgba(0,0,0,0.18);
+        }
+        body { margin: 0; padding: 0; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); }
+        #map { width: 100vw; height: 100vh; }
+        #slider-container {
+          position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+          background: var(--panel-bg); backdrop-filter: blur(10px);
+          padding: 20px 24px; border-radius: 12px;
+          box-shadow: 0 8px 32px var(--shadow); z-index: 1000;
+          min-width: 500px; color: var(--text-primary); border: 1px solid var(--panel-border);
+          transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+        }
+        #slider-label { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 8px; }
+        #length-slider { width: 100%; margin: 8px 0; cursor: pointer; accent-color: var(--accent-bright); }
+        #slider-value { font-size: 13px; color: var(--text-muted); margin: 6px 0; display: flex; justify-content: space-between; }
+        .stat strong { color: var(--accent-bright); font-family: monospace; font-size: 1.1em; }
+        #toggles { display: flex; justify-content: space-between; margin-top: 12px; flex-wrap: wrap; gap: 8px; }
+        .toggle { font-size: 13px; color: var(--text-muted); }
+        .toggle label { cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .toggle span { user-select: none }
+        .corner-btn {
+          background: var(--panel-bg); border: 1px solid var(--panel-border);
+          color: var(--text-primary); border-radius: 8px; padding: 8px 14px;
+          font-size: 13px; font-family: 'Segoe UI', Arial, sans-serif;
+          cursor: pointer; z-index: 1001; box-shadow: 0 4px 12px var(--shadow);
+          transition: background 0.3s, border-color 0.3s;
+          display: flex; align-items: center; gap: 6px;
+        }
+        .corner-btn:hover { opacity: 0.85; }
+        #theme-btn   { position: absolute; top: 20px; right: 20px; }
+        #hide-btn    { position: absolute; top: 20px; right: 148px; }
+        #kecc-k {
+          width: 44px;
+          background: transparent;
+          border: 1px solid var(--panel-border);
+          color: var(--text-primary);
+          border-radius: 4px;
+          padding: 1px 4px;
+          font-size: 13px;
+          font-family: 'Segoe UI', Arial, sans-serif;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <button id="theme-btn"  class="corner-btn" onclick="toggleTheme()">☀️ Light Mode</button>
+      <button id="hide-btn"   class="corner-btn" onclick="toggleControls()">🙈 Hide Controls</button>
+      <div id="slider-container">
+        <div id="slider-label">Connectivity Threshold</div>
+        <input type="range" id="length-slider" min="0" max="100" value="100" step="1">
+        <div id="slider-value">
+          <span class="stat">Range: <strong><span id="range-value"></span>m</strong></span>
+          <span class="stat">Edges: <strong><span id="edge-count"></span></strong></span>
+          <span class="stat">Components: <strong><span id="component-count">-</span></strong></span>
+        </div>
+        <div id="toggles">
+          <div id="component-toggle" class="toggle">
+            <label><input type="checkbox" id="show-components" checked><span>Render Hulls</span></label>
+          </div>
+          <div id="label-toggle" class="toggle">
+            <label><input type="checkbox" id="show-labels" checked><span>Hull Labels</span></label>
+          </div>
+          <div id="node-toggle" class="toggle">
+            <label><input type="checkbox" id="show-nodes" checked><span>Show Nodes</span></label>
+          </div>
+          <div id="edge-toggle" class="toggle">
+            <label><input type="checkbox" id="show-edges" checked><span>Show Edges</span></label>
+          </div>
+          <div id="mst-toggle" class="toggle">
+            <label><input type="checkbox" id="show-mst"><span>Minimum Spanning Tree</span></label>
+          </div>
+        </div>
+
+        <div style="width:100%; border-top:1px solid var(--panel-border); padding-top:8px; margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+          <div class="toggle">
+            <label>
+              <input type="checkbox" id="show-kecc">
+              <span>k-Edge-Connected (k=<input type="number" id="kecc-k" value="2" min="1" max="10">)</span>
+            </label>
+          </div>
+          <div class="toggle" id="bridge-toggle-wrap" style="display:none;">
+            <label><input type="checkbox" id="show-bridges" checked><span>Highlight Bridges</span></label>
+          </div>
+          <div class="toggle" style="font-size:12px; color:var(--text-secondary);">
+            <span id="bridge-count-label"></span>
+          </div>
+        </div>
+
+        <div id="op-toggles" style="width:100%; border-top:1px solid var(--panel-border); padding-top:8px; margin-top:8px; display:flex; flex-wrap:wrap; gap:8px;">
+          <div class="toggle"><label><input type="checkbox" id="op-6" checked><span id="op-6-label">Bouygues</span></label></div>
+          <div class="toggle"><label><input type="checkbox" id="op-240" checked><span id="op-240-label">Free</span></label></div>
+          <div class="toggle"><label><input type="checkbox" id="op-137" checked><span id="op-137-label">SFR</span></label></div>
+          <div class="toggle"><label><input type="checkbox" id="op-23" checked><span id="op-23-label">Orange</span></label></div>
+          <div class="toggle"><label><input type="checkbox" id="op-others" checked><span id="op-others-label">Others</span></label></div>
+        </div>
+      </div>
+
+      <script type="module">
+        import concaveman from 'https://cdn.jsdelivr.net/npm/concaveman@2.0.0/+esm'
+        const {DeckGL, ScatterplotLayer, LineLayer, PolygonLayer, TextLayer} = deck;
+
+        let city;
+        if (window.location.pathname.includes('/graph/')) {
+            city = window.location.pathname.split('/graph/')[1].replace('/', '');
+        } else {
+            city = new URLSearchParams(window.location.search).get('city');
+        }
+        city ||= 'paris';
+        // Normalize URL
+        const url = new URL(window.location.origin);
+        url.pathname = `/graph/${encodeURIComponent(city)}`;
+        history.replaceState({}, "", url)
+
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = `/data/${city}/data.js`;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+
+        // Data is loaded from the external .data.js file into window.graphData
+        const graphData = window.graphData;
+
+        // Active region bounds in WGS84 lon/lat
+        const ACTIVE_REGION = {
+          lonMin: graphData.ar_lon_min,
+          latMin: graphData.ar_lat_min,
+          lonMax: graphData.ar_lon_max,
+          latMax: graphData.ar_lat_max,
+        };
+        const ACTIVE_REGION_AREA_KM2 = (() => {
+          const latRad = ((ACTIVE_REGION.latMin + ACTIVE_REGION.latMax) / 2) * Math.PI / 180;
+          const mPerDegLon = 111319.5 * Math.cos(latRad);
+          const mPerDegLat = 111319.5;
+          const w = (ACTIVE_REGION.lonMax - ACTIVE_REGION.lonMin) * mPerDegLon;
+          const h = (ACTIVE_REGION.latMax - ACTIVE_REGION.latMin) * mPerDegLat;
+          return w * h / 1e6;
+        })();
+
+        const MAP_STYLE_DARK  = 'mapbox://styles/mapbox/dark-v10';
+        const MAP_STYLE_LIGHT = 'mapbox://styles/mapbox/light-v10';
+
+        // ── Theme state ──────────────────────────────────────────────────────────
+        let isDark = true;
+
+        window.toggleTheme = function() {
+          isDark = !isDark;
+          document.documentElement.classList.toggle('light', !isDark);
+          const btn = document.getElementById('theme-btn');
+          btn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+          deckgl.setProps({ mapStyle: isDark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT });
+          updateVisualization(parseFloat(document.getElementById('length-slider').value));
+        };
+
+        let controlsVisible = true;
+        window.toggleControls = function() {
+          controlsVisible = !controlsVisible;
+          document.getElementById('slider-container').style.display = controlsVisible ? '' : 'none';
+          const btn = document.getElementById('hide-btn');
+          btn.textContent = controlsVisible ? '🙈 Hide Controls' : '👁 Show Controls';
+        };
+
+        // Theme-aware colour helpers
+        function themeEdgeColor() {
+          return isDark ? [150, 150, 150, 100] : [80, 80, 80, 140];
+        }
+        function themeMstEdgeColor() {
+          return isDark ? [200, 200, 200, 200] : [30, 30, 30, 220];
+        }
+        function themeRegionBorderColor() {
+          return isDark ? [255, 255, 255, 220] : [30, 30, 30, 200];
+        }
+        function themeDisconnectedNodeBorder() {
+          return isDark ? [255, 0, 0] : [180, 0, 0];
+        }
+        function themeHullFillAlpha() {
+          return isDark ? 80 : 110;
+        }
+        function themeHullStrokeAlpha() {
+          return isDark ? 200 : 230;
+        }
+        function themeLabelOutlineColor() {
+          return isDark ? [0, 0, 0, 200] : [255, 255, 255, 220];
+        }
+        function themeDisconnectedNodeColor() {
+          return isDark ? [230, 230, 230] : [120, 120, 120];
+        }
+
+        function base64ToArrayBuffer(base64) {
+          const binary = atob(base64);
+          const len = binary.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          return bytes.buffer;
+        }
+
+        // Parse nodes
+        const nodeBuffer = base64ToArrayBuffer(graphData.nodes);
+        const nodeDataView = new DataView(nodeBuffer);
+        const nodeCount = nodeBuffer.byteLength / 20;
+
+        const allNodes = new Array(nodeCount);
+        let bouyguesCount = 0, freeCount = 0, sfrCount = 0, orangeCount = 0, othersCount = 0;
+        for (let i = 0; i < nodeCount; i++) {
+          const offset = i * 20;
+          const lon = nodeDataView.getFloat64(offset, true);
+          const lat = nodeDataView.getFloat64(offset + 8, true);
+          const ops = nodeDataView.getUint32(offset + 16, true);
+          allNodes[i] = { position: [lon, lat], index: i, ops: ops };
+          
+          if (ops & 1) bouyguesCount++;
+          if (ops & 2) freeCount++;
+          if (ops & 4) sfrCount++;
+          if (ops & 8) orangeCount++;
+          if (ops & 16) othersCount++;
+        }
+
+        document.getElementById('op-6-label').innerText = `Bouygues (${bouyguesCount.toLocaleString()})`;
+        document.getElementById('op-240-label').innerText = `Free (${freeCount.toLocaleString()})`;
+        document.getElementById('op-137-label').innerText = `SFR (${sfrCount.toLocaleString()})`;
+        document.getElementById('op-23-label').innerText = `Orange (${orangeCount.toLocaleString()})`;
+        document.getElementById('op-others-label').innerText = `Others (${othersCount.toLocaleString()})`;
+
+        function getActiveOperatorMask() {
+          let mask = 0;
+          if (document.getElementById('op-6').checked) mask |= 1;
+          if (document.getElementById('op-240').checked) mask |= 2;
+          if (document.getElementById('op-137').checked) mask |= 4;
+          if (document.getElementById('op-23').checked) mask |= 8;
+          if (document.getElementById('op-others').checked) mask |= 16;
+          return mask;
+        }
+
+        // Parse edges
+        const edgeBuffer = base64ToArrayBuffer(graphData.edges);
+        const edgeView = new DataView(edgeBuffer);
+
+        const edgeCount = edgeBuffer.byteLength / (4 + 4 + 8);
+        const allEdges = new Array(edgeCount);
+
+        for (let i = 0; i < edgeCount; i++) {
+          const offset = i * 16;
+          const src = edgeView.getUint32(offset, true);
+          const tgt = edgeView.getUint32(offset + 4, true);
+          const length = edgeView.getFloat64(offset + 8, true);
+
+          const srcPos = allNodes[src].position;
+          const tgtPos = allNodes[tgt].position;
+
+          allEdges[i] = {
+            source: srcPos,
+            target: tgtPos,
+            sourceIndex: src,
+            targetIndex: tgt,
+            length: length
+          };
+        }
+
+        const minLength = edgeCount > 0 ? Math.floor(allEdges[0].length) : 0;
+        const maxLength = edgeCount > 0 ? Math.ceil(allEdges[edgeCount - 1].length) : 0;
+
+        document.getElementById('length-slider').min = minLength;
+        document.getElementById('length-slider').max = maxLength;
+        document.getElementById('length-slider').value = maxLength;
+        
+        document.getElementById('range-value').innerText = maxLength;
+        document.getElementById('edge-count').innerText = edgeCount.toLocaleString();
+
+        // ── Union-Find ───────────────────────────────────────────────────────────
+
+        class UnionFind {
+          constructor(n) {
+            this.parent = new Int32Array(n).map((_, i) => i);
+            this.size = new Int32Array(n).fill(1);
+            this.rep = new Int32Array(n).map((_, i) => i);
+          }
+          find(x) {
+            let root = x;
+            while (this.parent[root] !== root) root = this.parent[root];
+            let curr = x;
+            while (curr !== root) {
+              let next = this.parent[curr];
+              this.parent[curr] = root;
+              curr = next;
+            }
+            return root;
+          }
+          union(x, y) {
+            let rootX = this.find(x);
+            let rootY = this.find(y);
+            if (rootX === rootY) return;
+            const xWins = this.size[rootX] > this.size[rootY] ||
+              (this.size[rootX] === this.size[rootY] && this.rep[rootX] < this.rep[rootY]);
+            if (xWins) {
+              this.parent[rootY] = rootX;
+              this.size[rootX] += this.size[rootY];
+            } else {
+              this.parent[rootX] = rootY;
+              this.size[rootY] += this.size[rootX];
+            }
+          }
+        }
+
+
+        // ── Tarjan bridge finding (iterative DFS) ────────────────────────────────
+        //
+        // Returns a Uint8Array of length edgeList.length; entry i is 1 if edge i
+        // is a bridge (its removal disconnects the graph), 0 otherwise.
+        //
+        // The DFS tracks discovery times (disc) and low-link values (low).
+        // low[v] = min discovery time reachable from the subtree rooted at v via
+        // at most one back-edge.  An edge (parent -> v) is a bridge iff
+        // low[v] > disc[parent], meaning v's subtree has no back-edge reaching
+        // an ancestor of parent.
+        //
+        // We track the EDGE used to arrive at each node (parentEdge), not the
+        // parent node index, to correctly skip it on the way back without
+        // accidentally ignoring a genuine parallel edge (if any ever existed).
+        // For a simple graph this doesn't matter, but it's the right habit.
+        //
+        // The algorithm is iterative to avoid call-stack overflow on large graphs.
+        // Each stack frame stores:
+        //   node      – current node
+        //   parentEdge – index of edge we arrived on (-1 for root)
+        //   adjIdx    – next neighbour to visit (resumption pointer)
+
+        function findBridges(n, edgeList) {
+          // Build adjacency list: adj[u] = [ {neighbor, edgeIdx}, ... ]
+          const adj = [];
+          for (let i = 0; i < n; i++) adj.push([]);
+          for (let i = 0; i < edgeList.length; i++) {
+            const u = edgeList[i].sourceIndex;
+            const v = edgeList[i].targetIndex;
+            adj[u].push({ neighbor: v, edgeIdx: i });
+            adj[v].push({ neighbor: u, edgeIdx: i });
+          }
+
+          const disc    = new Int32Array(n).fill(-1); // -1 = unvisited
+          const low     = new Int32Array(n);
+          const bridges = new Uint8Array(edgeList.length);
+          let timer = 0;
+
+          for (let start = 0; start < n; start++) {
+            if (disc[start] !== -1) continue; // already visited
+
+            // Stack frame: { node, parentEdge, adjIdx }
+            disc[start] = low[start] = timer++;
+            const stack = [{ node: start, parentEdge: -1, adjIdx: 0 }];
+
+            while (stack.length > 0) {
+              const frame = stack[stack.length - 1];
+              const u = frame.node;
+
+              if (frame.adjIdx < adj[u].length) {
+                // Still have neighbours to process for u
+                const { neighbor: v, edgeIdx } = adj[u][frame.adjIdx++];
+
+                if (edgeIdx === frame.parentEdge) {
+                  // This is the edge we arrived on – skip it.
+                  // (Skipping by edge index rather than node index is safe for
+                  // simple graphs and also correct if parallel edges exist.)
+                  continue;
+                }
+
+                if (disc[v] === -1) {
+                  // Tree edge: push a new frame and descend into v
+                  disc[v] = low[v] = timer++;
+                  stack.push({ node: v, parentEdge: edgeIdx, adjIdx: 0 });
+                } else {
+                  // Back edge: update low[u] with the already-visited v
+                  if (low[u] > disc[v]) low[u] = disc[v];
+                }
+              } else {
+                // Finished all neighbours of u – pop and propagate low upward
+                stack.pop();
+                if (stack.length > 0) {
+                  const parentFrame = stack[stack.length - 1];
+                  const p = parentFrame.node;
+
+                  // Propagate low value from child u to parent p
+                  if (low[p] > low[u]) low[p] = low[u];
+
+                  // Bridge test: if u cannot reach p or any ancestor of p via a
+                  // back-edge, then the tree edge (p -> u) is a bridge.
+                  if (low[u] > disc[p]) {
+                    bridges[frame.parentEdge] = 1;
+                  }
+                }
+              }
+            }
+          }
+
+          return bridges;
+        }
+
+
+        // ── k-edge-connected components ──────────────────────────────────────────
+        //
+        // Returns a UnionFind where all nodes in the same k-ECC share a root.
+        //
+        // Algorithm: iterative bridge contraction (k-1 passes).
+        //
+        //   Pass 1 computes 2-ECCs: find all bridges, remove them, run UF on the
+        //   remaining edges.  Everything in the same UF component is 2-edge-
+        //   connected (you need to remove at least 2 edges to disconnect them).
+        //
+        //   Pass 2 contracts those 2-ECCs to super-nodes, then repeats to find
+        //   3-ECCs, and so on up to pass k-1.
+        //
+        // After each pass we merge nodes that ended up in the same component into
+        // a single representative using a flat "component[]" array (path-compressed
+        // union-find without rank, which is fine here).  The contracted graph fed
+        // to the next pass only contains edges whose two endpoints map to different
+        // super-nodes.
+        //
+        // The final result is wrapped back into the existing UnionFind class so the
+        // rest of the rendering code is unchanged.
+
+        function computeKECC(nodeCount, edgeList, k) {
+          if (k <= 1) {
+            const uf = new UnionFind(nodeCount);
+            for (const e of edgeList) uf.union(e.sourceIndex, e.targetIndex);
+            return uf;
+          }
+
+          // component[i] = representative of node i (path-compressed)
+          const component = new Int32Array(nodeCount);
+          for (let i = 0; i < nodeCount; i++) component[i] = i;
+
+          function findComp(x) {
+            while (component[x] !== x) {
+              component[x] = component[component[x]]; // path halving
+              x = component[x];
+            }
+            return x;
+          }
+          function mergeComp(x, y) {
+            x = findComp(x);
+            y = findComp(y);
+            if (x !== y) component[y] = x;
+          }
+
+          for (let pass = 0; pass < k - 1; pass++) {
+            // Build contracted edge list, skipping self-loops
+            const contracted = [];
+            for (let i = 0; i < edgeList.length; i++) {
+              const cu = findComp(edgeList[i].sourceIndex);
+              const cv = findComp(edgeList[i].targetIndex);
+              if (cu !== cv) contracted.push({ sourceIndex: cu, targetIndex: cv, origIdx: i });
+            }
+            if (contracted.length === 0) break;
+
+            // Remap super-node IDs to a dense 0..M-1 range so findBridges
+            // can allocate a compact arrays of size M rather than nodeCount
+            const idMap = new Map();
+            let nextId = 0;
+            for (const e of contracted) {
+              if (!idMap.has(e.sourceIndex)) idMap.set(e.sourceIndex, nextId++);
+              if (!idMap.has(e.targetIndex)) idMap.set(e.targetIndex, nextId++);
+            }
+            const remapped = contracted.map(e => ({
+              sourceIndex: idMap.get(e.sourceIndex),
+              targetIndex: idMap.get(e.targetIndex),
+              origIdx: e.origIdx,
+            }));
+
+            const bridges = findBridges(nextId, remapped);
+
+            // Merge original nodes connected by non-bridge edges
+            let mergedAny = false;
+            for (let i = 0; i < remapped.length; i++) {
+              if (!bridges[i]) {
+                mergeComp(contracted[i].sourceIndex, contracted[i].targetIndex);
+                mergedAny = true;
+              }
+            }
+            if (!mergedAny) break; // graph is already a tree of super-nodes
+          }
+
+          // Package result as a UnionFind so the rest of the code is unchanged
+          const uf = new UnionFind(nodeCount);
+          for (let i = 0; i < nodeCount; i++) {
+            const root = findComp(i);
+            if (root !== i) uf.union(i, root);
+          }
+          return uf;
+        }
+
+
+        // ── Bridge edges for highlighting ────────────────────────────────────────
+        //
+        // Returns the subset of edgeList that are bridges in the graph formed by
+        // those edges.  Used purely for the visual "highlight bridges" layer.
+
+        function getBridgeEdges(nodeCount, edgeList) {
+          if (edgeList.length === 0) return [];
+
+          // Remap to dense IDs (edgeList may be a subset of allEdges)
+          const idMap = new Map();
+          let nextId = 0;
+          for (const e of edgeList) {
+            if (!idMap.has(e.sourceIndex)) idMap.set(e.sourceIndex, nextId++);
+            if (!idMap.has(e.targetIndex)) idMap.set(e.targetIndex, nextId++);
+          }
+          const remapped = edgeList.map(e => ({
+            sourceIndex: idMap.get(e.sourceIndex),
+            targetIndex: idMap.get(e.targetIndex),
+          }));
+
+          const flags = findBridges(nextId, remapped);
+          return edgeList.filter((_, i) => flags[i]);
+        }
+
+
+        function computeMST(activeEdges, nodeCount) {
+          const uf = new UnionFind(nodeCount);
+          const mstEdges = [];
+          for (let i = 0; i < activeEdges.length; i++) {
+            const e = activeEdges[i];
+            const rootA = uf.find(e.sourceIndex);
+            const rootB = uf.find(e.targetIndex);
+            if (rootA !== rootB) {
+              uf.union(e.sourceIndex, e.targetIndex);
+              mstEdges.push(e);
+            }
+          }
+          return mstEdges;
+        }
+
+        function hslToRgb(h, s, l) {
+          s /= 100; l /= 100;
+          const k = n => (n + h / 30) % 12;
+          const a = s * Math.min(l, 1 - l);
+          const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+          return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+        }
+
+        function getStableColor(id) {
+          const phi = 0.618033988749895;
+          const n = id * phi;
+          const hue = (n * 360) % 360;
+          const sat  = isDark ? 75 : 80;
+          const lum  = isDark ? 55 : 42;
+          return hslToRgb(hue, sat, lum);
+        }
+
+        function findCutoffIndex(maxLength) {
+          let left = 0, right = allEdges.length;
+          while (left < right) {
+            const mid = (left + right) >>> 1;
+            if (allEdges[mid].length <= maxLength) left = mid + 1;
+            else right = mid;
+          }
+          return left;
+        }
+
+        function polygonAreaKm2(polygon) {
+          if (!polygon || polygon.length < 3) return 0;
+          let latSum = 0;
+          for (const p of polygon) latSum += p[1];
+          const latRad = (latSum / polygon.length) * Math.PI / 180;
+          const mPerDegLon = 111319.5 * Math.cos(latRad);
+          const mPerDegLat = 111319.5;
+          let area = 0;
+          const n = polygon.length;
+          for (let i = 0; i < n; i++) {
+            const [lon0, lat0] = polygon[i];
+            const [lon1, lat1] = polygon[(i + 1) % n];
+            area += (lon0 * mPerDegLon) * (lat1 * mPerDegLat)
+                  - (lon1 * mPerDegLon) * (lat0 * mPerDegLat);
+          }
+          return Math.abs(area) / 2 / 1e6;
+        }
+
+        function clipPolygonToRect(polygon, lonMin, latMin, lonMax, latMax) {
+          function inside(p, edge) {
+            if (edge === 'left')   return p[0] >= lonMin;
+            if (edge === 'right')  return p[0] <= lonMax;
+            if (edge === 'bottom') return p[1] >= latMin;
+            if (edge === 'top')    return p[1] <= latMax;
+          }
+          function intersect(p1, p2, edge) {
+            const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+            let t;
+            if (edge === 'left')   t = dx !== 0 ? (lonMin - p1[0]) / dx : 0;
+            if (edge === 'right')  t = dx !== 0 ? (lonMax - p1[0]) / dx : 0;
+            if (edge === 'bottom') t = dy !== 0 ? (latMin - p1[1]) / dy : 0;
+            if (edge === 'top')    t = dy !== 0 ? (latMax - p1[1]) / dy : 0;
+            return [p1[0] + t * dx, p1[1] + t * dy];
+          }
+          let output = polygon.map(p => [...p]);
+          for (const edge of ['left', 'right', 'bottom', 'top']) {
+            if (!output.length) break;
+            const input = output;
+            output = [];
+            for (let i = 0; i < input.length; i++) {
+              const curr = input[i];
+              const prev = input[(i - 1 + input.length) % input.length];
+              if (inside(curr, edge)) {
+                if (!inside(prev, edge)) output.push(intersect(prev, curr, edge));
+                output.push(curr);
+              } else if (inside(prev, edge)) {
+                output.push(intersect(prev, curr, edge));
+              }
+            }
+          }
+          return output;
+        }
+
+        function pointInPolygon(point, polygon) {
+          const [px, py] = point;
+          const n = polygon.length;
+          let inside = false;
+          for (let i = 0, j = n - 1; i < n; j = i++) {
+            const [xi, yi] = polygon[i];
+            const [xj, yj] = polygon[j];
+            if (((yi > py) !== (yj > py)) &&
+                (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) {
+              inside = !inside;
+            }
+          }
+          return inside;
+        }
+
+        function polygonCentroid(polygon) {
+          let lonSum = 0, latSum = 0;
+          for (const [lon, lat] of polygon) {
+            lonSum += lon;
+            latSum += lat;
+          }
+          return [lonSum / polygon.length, latSum / polygon.length];
+        }
+
+        function buildComponents(uf, isNodeActive) {
+          const components = new Map();
+          for (let i = 0; i < allNodes.length; i++) {
+            if (!isNodeActive || isNodeActive[i]) {
+              const root = uf.find(i);
+              if (!components.has(root)) components.set(root, []);
+              components.get(root).push(i);
+            }
+          }
+          return components;
+        }
+        
+        const mapboxApiAccessToken = 'pk.eyJ1IjoibGVvbmFyZG5vbHRpbmciLCJhIjoiY2tveWIxbTRrMG8zZDJvbXBkZWFjaGRwYiJ9.LRxwWqiFgR75C0TXgGkQZQ';
+
+        const deckgl = new DeckGL({
+          container: 'map',
+          mapStyle: MAP_STYLE_DARK,
+          mapboxApiAccessToken,
+          initialViewState: {
+            longitude: (graphData.ar_lon_min + graphData.ar_lon_max) / 2,
+            latitude: (graphData.ar_lat_min + graphData.ar_lat_max) / 2,
+            zoom: 9,
+            pitch: 0,
+            bearing: 0
+          },
+          controller: true,
+          layers: []
+        });
+
+        function updateVisualization(maxLengthValue) {
+          const activeMask = getActiveOperatorMask();
+          const isNodeActive = new Uint8Array(allNodes.length);
+          for(let i=0; i<allNodes.length; i++) {
+             if ((allNodes[i].ops & activeMask) !== 0) isNodeActive[i] = 1;
+          }
+
+          const cutoffIndex = findCutoffIndex(maxLengthValue);
+          const lengthEdges = allEdges.slice(0, cutoffIndex);
+          const activeEdges = lengthEdges.filter(e => isNodeActive[e.sourceIndex] && isNodeActive[e.targetIndex]);
+
+          let maxInitialDegreeForActive = 1;
+          const initialDegreesActive = new Int32Array(allNodes.length).fill(0);
+          for (let i = 0; i < allEdges.length; i++) {
+             const e = allEdges[i];
+             if (isNodeActive[e.sourceIndex] && isNodeActive[e.targetIndex]) {
+                 initialDegreesActive[e.sourceIndex]++;
+                 initialDegreesActive[e.targetIndex]++;
+             }
+          }
+          for(let i=0; i<initialDegreesActive.length; i++) {
+             if (initialDegreesActive[i] > maxInitialDegreeForActive) {
+                 maxInitialDegreeForActive = initialDegreesActive[i];
+             }
+          }
+
+          const mstEnabled  = document.getElementById('show-mst').checked;
+          const keccEnabled = document.getElementById('show-kecc').checked;
+          const kValue      = Math.max(1, parseInt(document.getElementById('kecc-k').value, 10) || 2);
+
+          // Show/hide bridge toggle depending on whether k-ECC mode is active
+          document.getElementById('bridge-toggle-wrap').style.display = keccEnabled ? '' : 'none';
+
+          const renderEdges = mstEnabled ? computeMST(activeEdges, allNodes.length) : activeEdges;
+
+          const currentDegrees = new Int32Array(allNodes.length).fill(0);
+          for (let i = 0; i < renderEdges.length; i++) {
+            currentDegrees[renderEdges[i].sourceIndex]++;
+            currentDegrees[renderEdges[i].targetIndex]++;
+          }
+          const maxCurrentDegree = Math.max(...currentDegrees, 1);
+
+          const activeNodes = [];
+          for (let i = 0; i < allNodes.length; i++) {
+            if (isNodeActive[i]) {
+                activeNodes.push(allNodes[i]);
+            }
+          }
+
+          // ── Compute connectivity components ──────────────────────────────────
+          // For k-ECC mode we use computeKECC; otherwise plain Union-Find.
+          // Either way the result is a UnionFind instance that buildComponents()
+          // can consume without changes.
+          let uf;
+          let bridgeEdges = [];
+
+          if (keccEnabled) {
+            uf = computeKECC(allNodes.length, activeEdges, kValue);
+
+            if (document.getElementById('show-bridges').checked) {
+              // Bridge edges are those in activeEdges that join two nodes
+              // belonging to *different* k-ECCs (i.e. they were removed during
+              // the contraction process).  The cheapest way to identify them:
+              // an edge (u,v) is a bridge in the contracted graph iff uf.find(u)
+              // !== uf.find(v) after all k-1 passes.
+              bridgeEdges = activeEdges.filter(
+                e => uf.find(e.sourceIndex) !== uf.find(e.targetIndex)
+              );
+            }
+          } else {
+            uf = new UnionFind(allNodes.length);
+            for (let i = 0; i < activeEdges.length; i++) {
+              uf.union(activeEdges[i].sourceIndex, activeEdges[i].targetIndex);
+            }
+          }
+
+          // Update bridge count label
+          const bridgeLabel = document.getElementById('bridge-count-label');
+          if (keccEnabled) {
+            const totalBridges = activeEdges.filter(
+              e => uf.find(e.sourceIndex) !== uf.find(e.targetIndex)
+            ).length;
+            bridgeLabel.textContent = `${totalBridges.toLocaleString()} bridge edge${totalBridges !== 1 ? 's' : ''}`;
+          } else {
+            bridgeLabel.textContent = '';
+          }
+
+          const components = buildComponents(uf, isNodeActive);
+          const hulls = [];
+          const hullLabels = [];
+          const nodeColorMap = new Map();
+          let meaningfulComponentCount = 0;
+
+          const fillAlpha   = themeHullFillAlpha();
+          const strokeAlpha = themeHullStrokeAlpha();
+          const isolated    = themeDisconnectedNodeColor();
+
+          for (const [root, nodeIndices] of components) {
+            const stableId = uf.rep[root];
+            if (nodeIndices.length < 2) {
+              nodeColorMap.set(nodeIndices[0], isolated);
+              continue;
+            }
+            meaningfulComponentCount++;
+            const color = getStableColor(stableId);
+            for (const idx of nodeIndices) nodeColorMap.set(idx, color);
+
+            const points = nodeIndices.map(idx => allNodes[idx].position);
+            const polygon = concaveman(points, 2.0);
+            hulls.push({ polygon: polygon, color: [...color, fillAlpha], strokeColor: [...color, strokeAlpha] });
+
+            if (nodeIndices.length >= 4) {
+              let disconnectedInHull = 0;
+
+              for (const activeNode of activeNodes) {
+                // If the node belongs to a different connected component 
+                // but sits spatially inside this component's polygon bounds
+                if (uf.find(activeNode.index) !== root) {
+                  if (pointInPolygon(activeNode.position, polygon)) {
+                    disconnectedInHull++;
+                  }
+                }
+              }
+
+              const ratio = nodeIndices.length / (nodeIndices.length + disconnectedInHull);
+              const labelText = `${nodeIndices.length}/${(nodeIndices.length + disconnectedInHull)} ${(ratio * 100).toFixed(1)}%`;
+              const centroid = polygonCentroid(polygon);
+              hullLabels.push({
+                position: centroid,
+                text: labelText,
+                disconnected: disconnectedInHull,
+                connected: nodeIndices.length,
+                ratio: ratio,
+              });
+            }
+          }
+
+          const showHulls  = document.getElementById('show-components').checked;
+          const showLabels = document.getElementById('show-labels').checked;
+          const edgeCol    = mstEnabled ? themeMstEdgeColor() : themeEdgeColor();
+          const borderCol  = themeRegionBorderColor();
+          const outline    = themeLabelOutlineColor();
+          const nodeBorder = themeDisconnectedNodeBorder();
+
+          // Bridge edge colour: vivid orange-red, always visible against the map
+          const bridgeColor = isDark ? [255, 80, 20, 230] : [200, 40, 0, 220];
+
+          function labelColor(d) {
+            const t = Math.min(1 - d.ratio, 1);
+            if (isDark) {
+              return [255, Math.round(255 * (1 - t * 0.85)), Math.round(255 * (1 - t * 0.85)), 230];
+            } else {
+              return [Math.round(180 * t + 20), Math.round(20 * (1 - t) + 20), 20, 230];
+            }
+          }
+
+          const layers = [
+            new PolygonLayer({
+              id: 'active-region-rect',
+              data: [[
+                [ACTIVE_REGION.lonMin, ACTIVE_REGION.latMin],
+                [ACTIVE_REGION.lonMax, ACTIVE_REGION.latMin],
+                [ACTIVE_REGION.lonMax, ACTIVE_REGION.latMax],
+                [ACTIVE_REGION.lonMin, ACTIVE_REGION.latMax],
+              ]],
+              getPolygon: d => d,
+              filled: false,
+              stroked: true,
+              getLineColor: borderCol,
+              getLineWidth: 3,
+              lineWidthMinPixels: 2,
+              pickable: false,
+            }),
+            new PolygonLayer({
+              id: 'hulls',
+              data: showHulls ? hulls : [],
+              getPolygon: d => d.polygon,
+              getFillColor: d => d.color,
+              getLineColor: d => d.strokeColor,
+              getLineWidth: 2,
+              lineWidthMinPixels: 1,
+              filled: true,
+              stroked: true,
+              updateTriggers: { getPolygon: [maxLengthValue], getFillColor: [isDark], getLineColor: [isDark] }
+            }),
+            new LineLayer({
+              id: 'edges',
+              data: document.getElementById('show-edges').checked ? renderEdges : [],
+              getSourcePosition: d => d.source,
+              getTargetPosition: d => d.target,
+              getColor: edgeCol,
+              getWidth: 1,
+              updateTriggers: { getColor: [isDark] }
+            }),
+            // Bridge edges rendered on top of normal edges, thicker and coloured
+            new LineLayer({
+              id: 'bridge-edges',
+              data: bridgeEdges,
+              getSourcePosition: d => d.source,
+              getTargetPosition: d => d.target,
+              getColor: bridgeColor,
+              getWidth: 3,
+              widthMinPixels: 2,
+              updateTriggers: { getColor: [isDark], data: [maxLengthValue, activeMask, keccEnabled, kValue] }
+            }),
+            new ScatterplotLayer({
+              id: 'nodes',
+              data: document.getElementById('show-nodes').checked ? activeNodes : [],
+              getPosition: d => d.position,
+              getRadius: d => {
+                const degree = currentDegrees[d.index] || Math.ceil(maxCurrentDegree / 2);
+                const normalized = degree / maxInitialDegreeForActive;
+                return 5 + normalized * 25;
+              },
+              radiusMinPixels: 2,
+              getFillColor: d => nodeColorMap.get(d.index),
+              stroked: true,
+              getLineColor: d => currentDegrees[d.index] === 0 ? nodeBorder : [0, 0, 0, 0],
+              getLineWidth: d => currentDegrees[d.index] === 0 ? 4 : 0,
+              updateTriggers: {
+                getFillColor: [maxLengthValue, isDark, activeMask, keccEnabled, kValue],
+                getRadius: [maxLengthValue, activeMask],
+                getLineWidth: [maxLengthValue, activeMask],
+                getLineColor: [isDark, activeMask],
+              }
+            }),
+            new TextLayer({
+              id: 'hull-labels',
+              data: (showHulls && showLabels) ? hullLabels : [],
+              getPosition: d => d.position,
+              getText: d => d.text,
+              getColor: d => labelColor(d),
+              getSize: 13,
+              fontFamily: "'Segoe UI', Arial, sans-serif",
+              fontWeight: 'bold',
+              getTextAnchor: 'middle',
+              getAlignmentBaseline: 'center',
+              outlineWidth: 3,
+              outlineColor: outline,
+              fontSettings: { sdf: true },
+              updateTriggers: { getText: [maxLengthValue], getColor: [maxLengthValue, isDark], outlineColor: [isDark] }
+            }),
+          ];
+
+          deckgl.setProps({ layers });
+          document.getElementById('range-value').innerText = maxLengthValue.toFixed(0);
+          document.getElementById('edge-count').innerText = renderEdges.length.toLocaleString();
+          document.getElementById('component-count').innerText = meaningfulComponentCount.toLocaleString();
+        }
+
+        const slider = document.getElementById('length-slider');
+        slider.addEventListener('input', e => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('show-components').addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('show-labels').addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('show-nodes').addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('show-edges').addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('show-mst').addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('show-kecc').addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('show-bridges').addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('kecc-k').addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        document.getElementById('kecc-k').addEventListener('input', () => updateVisualization(parseFloat(slider.value)));
+
+        ['op-6', 'op-240', 'op-137', 'op-23', 'op-others'].forEach(id => {
+          document.getElementById(id).addEventListener('change', () => updateVisualization(parseFloat(slider.value)));
+        });
+
+        const initialMaxLength = Math.min(typeof maxLength !== 'undefined' ? maxLength : 1000, 1000);
+        slider.value = initialMaxLength;
+        updateVisualization(initialMaxLength);
+      </script>
+</body>
+</html>

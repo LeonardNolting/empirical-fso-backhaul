@@ -1,0 +1,403 @@
+gmp-map-3d {
+    height: 100%;
+}
+gmp-map-3d:first-of-type {
+    width: 60%;
+}
+gmp-map-3d:last-of-type {
+    width: 40%;
+    border-left: 1px solid #111;
+}
+body:not(.height) gmp-map-3d:first-of-type {
+    width: 100%;
+}
+body:not(.height) gmp-map-3d:last-of-type {
+    display: none;
+}
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+*:focus {
+    outline: none;
+}
+
+/* Adapted from https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/kbd */
+kbd {
+    background-color: #eeeeee;
+    border-radius: 3px;
+    border: 1px solid #b4b4b4;
+    box-shadow:
+            0 1px 1px rgb(0 0 0 / 0.2),
+            0 2px 0 0 rgb(255 255 255 / 0.7) inset;
+    color: #333333;
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: bold;
+    line-height: 1;
+    padding: 2px 4px;
+    white-space: nowrap;
+}
+
+kbd:has(kbd) {
+    background-color: unset;
+    border: unset;
+    box-shadow: unset;
+    padding: unset;
+}
+
+span + kbd {
+    margin-left: 0.6rem;
+}
+
+.controls {
+    position: absolute;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#controls {
+    top: 10px;
+    left: 10px;
+}
+
+#controls-2 {
+    top: 10px;
+    right: 10px;
+    align-items: flex-end;
+}
+
+#info {
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#change-info {
+    text-transform: capitalize;
+}
+
+#change-info:not(:empty) {
+    transition: opacity .2s ease-in-out;
+}
+
+#change-info:empty {
+    pointer-events: none;
+    opacity: 0;
+}
+
+#tower-info {
+    white-space: nowrap;
+    background: white;
+    padding: 2px 4px;
+    border-radius: 4px;
+    border: 2px solid #333;
+    margin-top: -2px;
+    text-transform: capitalize;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.controls > div {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.controls > button, .controls > div > button, .controls > label, .controls > div > label, .controls > span, .controls > div > span, .controls > a, .controls > div > a {
+    padding: .4rem .8rem;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
+    border: 2px solid #555;
+    box-shadow: 0 0 8px 0 #555, inset 0 0 2px 0 #555;
+}
+
+a, a:visited {
+    text-decoration: none;
+    color: unset;
+}
+
+.controls button:hover, .controls label:hover, .controls a:hover {
+    cursor: pointer;
+    background-color: #eee;
+}
+
+input[type=checkbox] {
+    margin-right: 6px;
+}
+
+#reset-button {
+    border-color: #edd300;
+}
+
+button, label, input, a {
+    user-select: none;
+}
+
+button {
+    box-shadow: none;
+    border: none;
+}
+
+button:disabled {
+    pointer-events: none;
+}
+
+#persistence {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    z-index: 100;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .8rem;
+    flex-direction: column;
+    font-size: 2rem;
+}
+
+#persistence > span {
+    margin-bottom: 1.2rem;
+}
+
+#persistence > button {
+    font-size: 2rem;
+    background-color: lightskyblue;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: .8rem 1.6rem;
+    border: black 2px solid;
+}
+
+#loading {
+    background: white;
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+body:not(.loading) #loading {
+    display: none;
+}
+
+#loading:before {
+    content: "";
+    position: absolute;
+    z-index: 201;
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: dodgerblue;
+    animation: spin 1s ease-in-out infinite;
+    -webkit-animation: spin 1s ease-in-out infinite;
+    margin-right: .6rem;
+}
+
+#controls-3 {
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+}
+
+#street-view-toggle {
+    cursor: pointer;
+    border-color: green;
+}
+
+#street-view-toggle:before {
+    content: "";
+    display: inline-block;
+    width: .8rem;
+    height: .8rem;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: dodgerblue;
+    animation: spin 1s ease-in-out infinite;
+    -webkit-animation: spin 1s ease-in-out infinite;
+    margin-right: .6rem;
+}
+
+#street-view-toggle.loading {
+    cursor: default;
+    border-color: #aaa;
+}
+
+#street-view-toggle:not(.loading):before {
+    visibility: hidden;
+    width: 0;
+    margin-right: 0;
+    border: 0;
+}
+
+@keyframes spin {
+    to { -webkit-transform: rotate(360deg); }
+}
+@-webkit-keyframes spin {
+    to { -webkit-transform: rotate(360deg); }
+}
+
+#street-view {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    z-index: 30;
+    border: none;
+}
+
+body:not(.street-view) #street-view {
+    z-index: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+#controls > div > #bad-button {
+    border-color: #edd300;
+}
+
+#controls > div > #bad-button:has(:checked) {
+    background-color: red;
+    border: 2px solid darkred;
+    color: white;
+}
+
+#prev-button, #next-button {
+    position: absolute;
+    z-index: 10;
+    top: -50%;
+    height: 200%;
+    width: 25%;
+    background: none;
+    border: none;
+    transition: transform .2s ease-in-out;
+    box-shadow: inset -150px 0 100px 50px rgba(0,0,0,0.2);
+}
+
+#prev-button {
+    box-shadow: inset 150px 0 100px 50px rgba(0,0,0,0.2);
+}
+
+#prev-button:hover, #next-button:hover {
+    cursor: pointer;
+    transform: translateX(-20%)
+}
+
+#prev-button:hover {
+    transform: translateX(20%)
+}
+
+#prev-button:after, #next-button:after {
+    content: "<";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4rem;
+    height: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2000px;
+    background-color: white;
+    font-size: 2rem;
+    box-shadow: 0 0 8px -1px #333, inset 0 0 4px 1px #ddd;
+}
+
+#next-button:after {
+    transform: translate(-50%, -50%) rotate(180deg);
+}
+
+#next-button {
+    right: -8%;
+}
+
+#prev-button {
+    left: -8%;
+}
+
+#shortcut-info {
+    bottom: 10px;
+    left: 10px;
+    background: white;
+    padding: .4rem .8rem;
+    display: flex;
+    align-items: stretch;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: bold;
+    border: 2px solid #555;
+    box-shadow: 0 0 8px 0 #555, inset 0 0 2px 0 #555;
+}
+
+#shortcut-info > div {
+    display: flex;
+    flex-direction: column;
+}
+
+#shortcut-info > div > button, #shortcut-info > div > span {
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+
+    display: flex;
+    justify-content: space-between;
+}
+
+#shortcut-info-content > * {
+    text-transform: none;
+}
+
+#shortcut-info button:hover {
+    cursor: pointer;
+    background: unset;
+}
+
+#shortcut-info > #shortcut-info-content {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: .4rem;
+    display: none;
+}
+
+#shortcut-info:hover > #shortcut-info-content, body.show-shortcuts #shortcut-info > #shortcut-info-content {
+    display: flex;
+}
+
+body.show-shortcuts #toggle-shortcut-info span:before {
+    content: "Hide ";
+}
+
+body:not(.show-shortcuts) #toggle-shortcut-info span:before {
+    content: "Show ";
+}

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Cell site location validator</title>
+
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body class="height loading">
+<div id="controls" class="controls">
+    <div id="controls-row-1">
+        <label id="bad-button"><input type="checkbox" id="bad-checkbox" tabindex="-1"/><span>Mark as unclear</span><kbd>Backspace</kbd></label>
+    </div>
+    <div id="controls-row-2">
+        <button id="reset-button"><span>Reset</span><kbd><kbd>r</kbd> or <kbd>Space</kbd></kbd></button>
+    </div>
+</div>
+<button id="prev-button" tabindex="-1"></button>
+<button id="next-button" tabindex="-1"></button>
+<div id="info" class="controls">
+    <span id="tower-info"></span>
+    <span id="change-info"></span>
+</div>
+<div id="controls-2" class="controls">
+    <button id="save-button" tabindex="-1">Save</button>
+    <button id="sign-out-button">Sign out</button>
+</div>
+<iframe id="street-view"></iframe>
+<div id="controls-3" class="controls">
+    <button id="street-view-toggle"><span>Street View</span><kbd>s</kbd></button>
+</div>
+<div id="shortcut-info" class="controls">
+    <div id="shortcut-info-content">
+        <span><span>Switch between towers</span><kbd><kbd>Left</kbd>/<kbd>Right</kbd></kbd></span>
+        <button id="correct-button"><span>Mark tower as correct without changes</span><kbd>Enter</kbd></button>
+        <button id="fullscreen-button"><span>Toggle fullscreen</span><kbd>f</kbd></button>
+        <button id="top-view-button"><span>Switch to top view</span><kbd>t</kbd></button>
+        <span><span>Change height</span><kbd><kbd><kbd>Shift</kbd>+<kbd>Scroll</kbd></kbd> or <kbd><kbd>Up</kbd>/<kbd>Down</kbd></kbd></kbd></span>
+        <button id="toggle-height-viewer"><span>Toggle height viewer</span><kbd>h</kbd></button>
+        <span><span>Circle in height viewer</span><kbd>Scroll</kbd></span>
+    </div>
+    <div id="shortcut-info-collapsed">
+        <button id="toggle-shortcut-info"><span> shortcut info</span><kbd>i</kbd></button>
+    </div>
+</div>
+<div id="persistence">
+    <span>Choose where to store changes:</span>
+    <button id="google-button">Sign in with Google</button>
+    <button id="choose-directory">Choose a local directory</button>
+</div>
+<div id="loading">
+
+</div>
+<script type="module" src="src/main.ts"></script>
+</body>
+</html>
+

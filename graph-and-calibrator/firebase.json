@@ -1,0 +1,21 @@
+{
+  "hosting": {
+    "public": "dist",
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "rewrites": [
+      {
+        "source": "/graph/**",
+        "destination": "/graph.html"
+      },
+      {
+        "source": "/calibrator/**",
+        "destination": "/calibrator.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

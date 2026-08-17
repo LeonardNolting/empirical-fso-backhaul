@@ -1,0 +1,23 @@
+{
+  "name": "cellfso_simulator",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && firebase deploy"
+  },
+  "devDependencies": {
+    "@types/wicg-file-system-access": "^2023.10.7",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.4"
+  },
+  "dependencies": {
+    "@googlemaps/js-api-loader": "^2.0.2",
+    "@types/google.maps": "^3.58.1",
+    "firebase": "^12.8.0",
+    "idb-keyval": "^6.2.2"
+  }
+}
