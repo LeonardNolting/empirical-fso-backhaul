@@ -260,10 +260,7 @@ async fn main() {
     create_dir_all(&export_directory).await.unwrap();
 
     let clear_file = File::create(format!("{export_directory}/clear.csv")).unwrap();
-
     let blocked_file = File::create(format!("{export_directory}/blocked.csv")).unwrap();
-
-    std::fs::copy(nodes_file, format!("{export_directory}/nodes.csv")).unwrap();
 
     write_ray_data(BufWriter::new(clear_file), clear.into_iter()).unwrap();
     write_ray_data(BufWriter::new(blocked_file), blocked.into_iter()).unwrap();
