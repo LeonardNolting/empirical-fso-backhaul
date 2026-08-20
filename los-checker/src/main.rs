@@ -233,7 +233,8 @@ async fn main() {
     let ray_data = node_pairs(&nodes).filter_map(|(first_node, second_node)| {
         let ray = node_ray(first_node, second_node, max_link_length_km)?;
         let ray = ray.as_ray_2();
-        let length = (ray.diff_x * ray.diff_x + ray.diff_y * ray.diff_y).sqrt();
+        let length_km = (ray.diff_x * ray.diff_x + ray.diff_y * ray.diff_y).sqrt();
+        let length = length_km * 1000.0;
         Some((first_node.database_line, second_node.database_line, length))
     });
 
